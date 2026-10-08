@@ -130,6 +130,18 @@ def test_call_passes_null_as_none(client, papyrus):
     assert player("GetItemCount", gold)["returned"] == before
 
 
+@pytest.mark.requires_player
+def test_call_refuses_null_for_scalar_param(client, papyrus):
+    # None fits only object and array params; an int param must refuse it before dispatch.
+    require_enum(papyrus, "action", "call")
+    status, body = client.call(
+        "papyrus",
+        {"action": "call", "script": "Utility", "function": "RandomInt", "args": [None, 1]},
+    )
+    assert status == 400, (status, body)
+    assert isinstance(body, dict) and body.get("code") == 400, body
+
+
 def test_call_pads_omitted_optional_args(client, papyrus):
     # DispatchStaticCall/MethodCall don't fill Papyrus optional-param defaults, so
     # omitting them makes the native read unset slots and no-op (e.g. MoveTo/Disable
