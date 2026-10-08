@@ -207,17 +207,14 @@ namespace dvb
 				task->AddTask([command]() { RE::Console::ExecuteCommand(command.c_str()); });
 				return json{ { "queued", true }, { "command", command }, { "capturing", false } };
 			}
-			const bool completed = ConsoleLogCapture::RunFencedCapture(command);
-			json       out{ { "queued", false }, { "command", command }, { "capturing", true }, { "completed", completed } };
-			// The output has landed: hand it back now, saving the 'read' round trip. Reading leaves
-			// the capture as it is, so a 'read' still returns the same lines — the way to get them
-			// when the main thread is too busy to read now (the command already ran: no 504).
-			try {
-				out.update(MainThread::RunAndWait([maxLines]() -> json {
-					const auto r = ConsoleLogCapture::ReadFenced(static_cast<std::size_t>(maxLines));
-					return json{ { "lines", r.lines }, { "lossPossible", r.lossPossible } };
-				}));
-			} catch (const MainThread::TaskTimeout&) {
+			// The output comes back with the exec, saving the 'read' round trip; it is this capture's
+			// own, copied before another capture could start. No snapshot (source "none") = no lines.
+			ConsoleLogCapture::Result r;
+			const bool                completed = ConsoleLogCapture::RunFencedCapture(command, &r, static_cast<std::size_t>(maxLines));
+			json                      out{ { "queued", false }, { "command", command }, { "capturing", true }, { "completed", completed } };
+			if (r.source != "none") {
+				out["lines"] = r.lines;
+				out["lossPossible"] = r.lossPossible;
 			}
 			return out;
 		}
@@ -3050,7 +3047,7 @@ namespace dvb
 			"Both return the most recent 'maxLines' lines (default 200). A second capture while one is "
 			"running gets 409. exec then returns { queued:false, completed, lines, lossPossible }, "
 			"completed=false meaning the end marker never arrived and `lines` may be incomplete (no "
-			"`lines` when the main thread was too busy to read them: 'read' gets them); a capture that never sees its "
+			"`lines` when the main thread was too busy to take the output; 'read' has none then either); a capture that never sees its "
 			"begin marker gets 504 and the command is not run. "
 			"`save <name>`/`load <name>` are rerouted to the `game` tool's save/load "
 			"path and return { redirected:'game' } — saves use SKSE's queued request "
