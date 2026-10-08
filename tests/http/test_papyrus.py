@@ -109,6 +109,27 @@ def test_call_member_getnumitems(client, papyrus):
     assert returned >= 0, body
 
 
+@pytest.mark.requires_player
+def test_call_passes_null_as_none(client, papyrus):
+    # RemoveItem's akOtherContainer = None: the removed gold is gone, not moved anywhere.
+    require_enum(papyrus, "action", "call")
+
+    def player(function, *args):
+        return client.ok(
+            "papyrus",
+            {"action": "call", "script": "ObjectReference", "function": function,
+             "self": {"form": "0x14"}, "args": list(args)},
+        )
+
+    gold = {"form": "0xF"}
+    before = player("GetItemCount", gold)["returned"]
+    player("AddItem", gold, 1, True)
+    body = player("RemoveItem", gold, 1, True, None)
+    assert body.get("called") is True, body
+    assert "filledArgs" not in body, body
+    assert player("GetItemCount", gold)["returned"] == before
+
+
 def test_call_pads_omitted_optional_args(client, papyrus):
     # DispatchStaticCall/MethodCall don't fill Papyrus optional-param defaults, so
     # omitting them makes the native read unset slots and no-op (e.g. MoveTo/Disable
