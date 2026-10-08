@@ -79,6 +79,15 @@ def test_refs_player_by_formid(client, inspect):
 
 
 @pytest.mark.requires_player
+def test_refs_actor_reports_attack_state_and_stamina(client, inspect):
+    require_enum(inspect, "kind", "refs")
+    body = client.ok("inspect", {"kind": "refs", "formId": "0x14"})
+    actor = body["refs"][0].get("actor")
+    assert actor.get("attackState") == 0, actor  # the suite's player stands idle
+    assert _is_number(actor.get("stamina")) and _is_number(actor.get("staminaMax")), actor
+
+
+@pytest.mark.requires_player
 def test_refs_enumerate_reports_cell_and_model(client, inspect):
     require_enum(inspect, "kind", "refs")
     body = client.ok("inspect", {"kind": "refs", "formType": "Static", "radius": 5000, "limit": 50})
