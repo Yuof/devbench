@@ -83,7 +83,8 @@ def test_refs_actor_reports_attack_state_and_stamina(client, inspect):
     require_enum(inspect, "kind", "refs")
     body = client.ok("inspect", {"kind": "refs", "formId": "0x14"})
     actor = body["refs"][0].get("actor")
-    assert actor.get("attackState") == 0, actor  # the suite's player stands idle
+    state = actor.get("attackState")  # a reused game's player may be mid-attack: any state, not only 0
+    assert isinstance(state, int) and not isinstance(state, bool) and state >= 0, actor
     assert _is_number(actor.get("stamina")) and _is_number(actor.get("staminaMax")), actor
 
 
