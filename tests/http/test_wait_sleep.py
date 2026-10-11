@@ -74,17 +74,17 @@ def test_wait_rejects_excessive_hours(client, wait):
 
 
 @pytest.mark.requires_player
-def test_wait_advances_time(client, wait):
+@pytest.mark.parametrize("hours", [1, 24])
+def test_wait_advances_time(client, wait, hours):
     _goto_safe_cell(client)
     before = client.ok("inspect", {"kind": "scene"}).get("daysPassed")
     assert isinstance(before, (int, float)), before
-    body = client.ok("wait", {"hours": 1})
+    body = client.ok("wait", {"hours": hours})
     assert isinstance(body, dict), body
     assert body.get("completed") is True, body
-    assert body.get("hours") == 1, body
+    assert body.get("hours") == hours, body
     after = client.ok("inspect", {"kind": "scene"}).get("daysPassed")
-    # the hours asked for, plus a minute or two of game time the calls themselves take
-    assert 0.95 <= _hours_passed(before, after) <= 1.1, (before, after)
+    assert hours - 0.05 <= _hours_passed(before, after) <= hours + 0.1, (before, after)
 
 
 @pytest.mark.requires_player

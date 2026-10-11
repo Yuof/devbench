@@ -841,7 +841,7 @@ namespace dvb
 					pc->StartSleeping(static_cast<std::int32_t>(hours));
 				else
 					pc->StartWaiting(static_cast<std::int32_t>(hours));
-				return json{ { "ticks", ticks }, { "frame", game::CurrentFrame() } };
+				return json{ { "ticks", ticks } };
 			});
 			if (!start.contains("ticks"))
 				return start;
@@ -849,14 +849,16 @@ namespace dvb
 			// Start* sets playerFlags.sleeping and PlayerCharacter::Update advances the wait one tick per
 			// frame until it clears, as with SleepWaitMenu open. Ticking it all inside one task never let
 			// the engine drain the tasks each tick queues: actor refcounts wrapped during a 24h wait.
-			const int maxFrames = static_cast<int>(start["ticks"].get<long long>()) * 2 + 60;
-			const int lastFrame = start["frame"].get<int>() + maxFrames;
+			// Each poll is its own main-thread task, so polls land on different frames: the poll count
+			// bounds the wait in frames without the frame counter, which can be unavailable (-1).
+			const long long maxPolls = start["ticks"].get<long long>() * 2 + 60;
+			long long       polls = 0;
 			while (MainThread::RunAndWait([]() -> json {
 				auto* pc = RE::PlayerCharacter::GetSingleton();
 				return pc && pc->GetPlayerFlags().sleeping;
 			}).get<bool>()) {
-				if (game::CurrentFrame() > lastFrame)
-					throw ToolError(504, std::format("wait still running after {} frames", maxFrames));
+				if (++polls > maxPolls)
+					throw ToolError(504, std::format("wait still running after {} polls", maxPolls));
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
 			return json{ { "completed", true }, { "hours", hours } };
@@ -3697,8 +3699,8 @@ namespace dvb
 		wait.name = "wait";
 		wait.description =
 			"Advance time by waiting `hours`, synchronously and without touching the Wait "
-			"menu's UI at all: starts the wait, then drives its completion (autosave, script "
-			"events) to done before returning — no polling needed. Refuses with "
+			"menu's UI at all: starts the wait and returns once the game has run it to the end, "
+			"one tick per frame as with the menu open (no autosave) — no polling needed. Refuses with "
 			"{ completed:false, reason } on the same gate the menu itself enforces (combat, "
 			"trespassing, midair, hostiles nearby, etc.).";
 		wait.inputSchema = json{
