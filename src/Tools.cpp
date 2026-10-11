@@ -128,11 +128,14 @@ namespace dvb
 		json ConsoleHandler(const json& a_args, const ToolContext& a_ctx)
 		{
 			const std::string action = a_args.value("action", std::string("exec"));
+			const bool        capture = a_args.contains("capture") && Truthy(a_args["capture"]);
 			std::int64_t      maxLines = 200;
-			try {
-				maxLines = ParseBoundedIntegerArgument(a_args, "maxLines", 200, 1, static_cast<std::int64_t>(ConsoleLogCapture::PrintCollector::kMaxLines));
-			} catch (const std::invalid_argument&) {
-				throw ToolError(400, std::format("console: 'maxLines' must be an integer 1..{}", ConsoleLogCapture::PrintCollector::kMaxLines));
+			if (action == "read" || capture) {
+				try {
+					maxLines = ParseBoundedIntegerArgument(a_args, "maxLines", 200, 1, static_cast<std::int64_t>(ConsoleLogCapture::PrintCollector::kMaxLines));
+				} catch (const std::invalid_argument&) {
+					throw ToolError(400, std::format("console: 'maxLines' must be an integer 1..{}", ConsoleLogCapture::PrintCollector::kMaxLines));
+				}
 			}
 
 			if (action == "read") {
@@ -200,8 +203,6 @@ namespace dvb
 			auto* task = SKSE::GetTaskInterface();
 			if (!task)
 				throw ToolError(500, "SKSE TaskInterface unavailable");
-
-			const bool capture = a_args.contains("capture") && Truthy(a_args["capture"]);
 
 			if (!capture) {
 				task->AddTask([command]() { RE::Console::ExecuteCommand(command.c_str()); });
