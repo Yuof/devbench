@@ -1,7 +1,7 @@
 """Tests for the `wait` and `sleep` tools.
 
-Completion is synchronous — the call itself drives the wait/sleep to done before
-returning, no polling needed.
+Completion is synchronous — the call returns once the wait/sleep is done, no
+polling needed.
 """
 
 from __future__ import annotations
@@ -27,6 +27,11 @@ def sleep(tool_schema):
 # live test (not just relying on the suite's own bootstrap cell) so a prior test's
 # console fiddling can't leave the player somewhere that spuriously refuses.
 SAFE_COC_CELL = "WhiterunDragonsreach"
+
+
+def _hours_passed(before, after) -> float:
+    assert isinstance(before, (int, float)) and isinstance(after, (int, float)), (before, after)
+    return (after - before) * 24
 
 
 def _goto_safe_cell(client, timeout: float = 15.0) -> None:
@@ -78,7 +83,8 @@ def test_wait_advances_time(client, wait):
     assert body.get("completed") is True, body
     assert body.get("hours") == 1, body
     after = client.ok("inspect", {"kind": "scene"}).get("daysPassed")
-    assert isinstance(after, (int, float)) and after > before, (before, after)
+    # the hours asked for, plus a minute or two of game time the calls themselves take
+    assert 0.95 <= _hours_passed(before, after) <= 1.1, (before, after)
 
 
 @pytest.mark.requires_player
@@ -90,4 +96,4 @@ def test_sleep_advances_time(client, sleep):
     assert isinstance(body, dict), body
     assert body.get("completed") is True, body
     after = client.ok("inspect", {"kind": "scene"}).get("daysPassed")
-    assert isinstance(after, (int, float)) and after > before, (before, after)
+    assert 0.95 <= _hours_passed(before, after) <= 1.1, (before, after)
