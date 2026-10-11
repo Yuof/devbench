@@ -53,6 +53,8 @@ namespace dvb
 		// nothing on SE/AE, instead of the AddEvent<ButtonEvent> template every runtime uses.
 		std::uint32_t IdCodeOf(std::uint16_t a_code) { return static_cast<std::uint32_t>(EngineButtonOf(a_code).id); }
 
+		// An interned empty string, not a null BSFixedString: MenuControls only forwards keys whose userEvent is non-null.
+		// Leaked so it is not released at exit.
 		const RE::BSFixedString& DeviceUserEvent()
 		{
 			static const auto* empty = new RE::BSFixedString("");
