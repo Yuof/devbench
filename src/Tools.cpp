@@ -2667,7 +2667,7 @@ namespace dvb
 					const json& step = steps[i];
 					if (!step.contains("waitFor"))
 						chainedSince.reset();
-					json        r{ { "index", i } };
+					json r{ { "index", i } };
 					if (!markWholeRun && trajectorySpan && i >= trajectorySpan->first && i <= trajectorySpan->last) {
 						if (ScenarioPolicy::HoldsReplayMark(step))
 							replayMark.Engage();
