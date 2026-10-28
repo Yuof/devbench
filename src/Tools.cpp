@@ -2662,12 +2662,12 @@ namespace dvb
 				// A waitFor right after a waitFor resumes from the event the previous one matched.
 				std::optional<uint64_t> chainedSince;
 				for (size_t i = 0; i < steps.size() && !aborted; ++i) {
+					// Taken by every step: only a waitFor branch that runs and matches sets it again.
+					const std::optional<uint64_t> prevWaitForSince = std::exchange(chainedSince, std::nullopt);
 					if (a_options.beforeStep)
 						a_options.beforeStep(i);
 					const json& step = steps[i];
-					if (!step.contains("waitFor"))
-						chainedSince.reset();
-					json r{ { "index", i } };
+					json        r{ { "index", i } };
 					if (!markWholeRun && trajectorySpan && i >= trajectorySpan->first && i <= trajectorySpan->last) {
 						if (ScenarioPolicy::HoldsReplayMark(step))
 							replayMark.Engage();
@@ -2769,11 +2769,10 @@ namespace dvb
 							// Optional: auto-answer a matching modal each poll (e.g. the content-mismatch
 							// box a restore raises before postLoadGame can fire).
 							const std::string acceptBody = step.value("acceptModal", json::object()).value("matchBody", std::string{});
-							// Only events published after this step begins (or after chainedSince) count.
-							uint64_t   since = chainedSince.value_or(a_events.HeadSeq());
+							// Only events published after this step begins (or after the previous waitFor's match) count.
+							uint64_t   since = prevWaitForSince.value_or(a_events.HeadSeq());
 							bool       satisfied = false;
 							const auto deadline = steady_clock::now() + milliseconds(timeoutMs);
-							chainedSince.reset();
 							while (steady_clock::now() < deadline) {
 								for (const auto& ev : a_events.Since(since)) {
 									since = ev.seq;
